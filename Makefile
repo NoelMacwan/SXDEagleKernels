@@ -373,7 +373,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -DCONFIG_CCI_PRINTK_TIME
+		   -DCONFIG_CCI_PRINTK_TIME \
+		   -w 
 
 ifneq ($(TARGET_BUILD_VARIANT),user)
 KBUILD_CFLAGS	+= -DCONFIG_CCI_PRINTK_TIME_ISO_8601
