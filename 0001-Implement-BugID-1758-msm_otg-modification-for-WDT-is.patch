@@ -1,0 +1,203 @@
+From 37b5cbecb49bee7901f222d5e98d62102bd1b64a Mon Sep 17 00:00:00 2001
+From: mike_jang <mike_jang@compal.com>
+Date: Fri, 17 Oct 2014 14:33:10 +0800
+Subject: [PATCH] Implement [BugID:1758] msm_otg modification for WDT issue
+ Enable more logs.
+ Patch in myLog.
+
+Change-Id: I9a6dda24701a8d6166c99ab18c9e14c04d96d25d
+---
+ drivers/power/power_supply_core.c |    3 ++
+ drivers/power/qpnp-charger.c      |    4 ++
+ drivers/usb/otg/msm_otg.c         |   14 +++++++-
+ drivers/usb/otg/myLog.h           |   67 +++++++++++++++++++++++++++++++++++++
+ 4 files changed, 86 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/usb/otg/myLog.h
+
+diff --git a/drivers/power/power_supply_core.c b/drivers/power/power_supply_core.c
+index 20d5f55..b19dbb6 100644
+--- a/drivers/power/power_supply_core.c
++++ b/drivers/power/power_supply_core.c
+@@ -10,6 +10,9 @@
+  *  You may use this code as per GPL version 2
+  */
+ 
++// Mike
++#define DEBUG
++
+ #include <linux/module.h>
+ #include <linux/types.h>
+ #include <linux/init.h>
+diff --git a/drivers/power/qpnp-charger.c b/drivers/power/qpnp-charger.c
+index 7f98a08..0735a83 100644
+--- a/drivers/power/qpnp-charger.c
++++ b/drivers/power/qpnp-charger.c
+@@ -10,6 +10,10 @@
+  * GNU General Public License for more details.
+  *
+  */
++
++// Mike, add DEBUG to show pr_debug infor.
++#define DEBUG
++
+ #define pr_fmt(fmt)	"%s: " fmt, __func__
+ 
+ #include <linux/module.h>
+diff --git a/drivers/usb/otg/msm_otg.c b/drivers/usb/otg/msm_otg.c
+index 89fb1ab..547a4fd 100644
+--- a/drivers/usb/otg/msm_otg.c
++++ b/drivers/usb/otg/msm_otg.c
+@@ -10,6 +10,8 @@
+  * GNU General Public License for more details.
+  *
+  */
++// Mike,
++#define DEBUG
+ 
+ #include <linux/module.h>
+ #include <linux/device.h>
+@@ -50,6 +52,8 @@
+ #include <mach/msm_bus.h>
+ #include <mach/rpm-regulator.h>
+ 
++#include "myLog.h"
++
+ #define MSM_USB_BASE	(motg->regs)
+ #define DRIVER_NAME	"msm_otg"
+ 
+@@ -1343,6 +1347,7 @@ static int msm_otg_notify_chg_type(struct msm_otg *motg)
+ 
+ static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
+ {
++	Fin();
+ 	if (!psy) {
+ 		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
+ 		goto psy_error;
+@@ -1370,10 +1375,12 @@ static int msm_otg_notify_power_supply(struct msm_otg *motg, unsigned mA)
+ 	}
+ 
+ 	power_supply_changed(psy);
++	Fout();
+ 	return 0;
+ 
+ psy_error:
+ 	dev_dbg(motg->phy.dev, "power supply error when setting property\n");
++	Fout("error, XIO!");
+ 	return -ENXIO;
+ }
+ 
+@@ -2434,7 +2441,7 @@ static void msm_chg_detect_work(struct work_struct *w)
+ 	default:
+ 		return;
+ 	}
+-
++	Ftr("enqueue chg_work");
+ 	queue_delayed_work(system_nrt_wq, &motg->chg_work, delay);
+ }
+ 
+@@ -3708,7 +3715,7 @@ static int otg_power_set_property_usb(struct power_supply *psy,
+ 				  const union power_supply_propval *val)
+ {
+ 	struct msm_otg *motg = container_of(psy, struct msm_otg, usb_psy);
+-
++	Fin("psp: %d", psp);
+ 	switch (psp) {
+ 	/* Process PMIC notification in PRESENT prop */
+ 	case POWER_SUPPLY_PROP_PRESENT:
+@@ -3731,10 +3738,12 @@ static int otg_power_set_property_usb(struct power_supply *psy,
+ 		motg->usbin_health = val->intval;
+ 		break;
+ 	default:
++		Fout("error invalid para!");
+ 		return -EINVAL;
+ 	}
+ 
+ 	power_supply_changed(&motg->usb_psy);
++	Fout();
+ 	return 0;
+ }
+ 
+@@ -4123,6 +4132,7 @@ static const struct file_operations msm_otg_ext_chg_fops = {
+ 	.release = msm_otg_ext_chg_release,
+ };
+ 
++// Mike, _probe calls here.
+ static int msm_otg_setup_ext_chg_cdev(struct msm_otg *motg)
+ {
+ 	int ret;
+diff --git a/drivers/usb/otg/myLog.h b/drivers/usb/otg/myLog.h
+new file mode 100644
+index 0000000..ba2cc6f
+--- /dev/null
++++ b/drivers/usb/otg/myLog.h
+@@ -0,0 +1,67 @@
++#ifndef _MYLOG_H_
++#define _MYLOG_H_
++
++#include <linux/kallsyms.h>
++
++#define __VA_NARG__(...) \
++        (__VA_NARG_(_0, ## __VA_ARGS__, __RSEQ_N()) - 1)
++#define __VA_NARG_(...) \
++        __VA_ARG_N(__VA_ARGS__)
++#define __VA_ARG_N( \
++         _1, _2, _3, _4, _5, _6, _7, _8, _9,_10, \
++        _11,_12,_13,_14,_15,_16,_17,_18,_19,_20, \
++        _21,_22,_23,_24,_25,_26,_27,_28,_29,_30, \
++        _31,_32,_33,_34,_35,_36,_37,_38,_39,_40, \
++        _41,_42,_43,_44,_45,_46,_47,_48,_49,_50, \
++        _51,_52,_53,_54,_55,_56,_57,_58,_59,_60, \
++        _61,_62,_63,N,...) N
++#define __RSEQ_N() \
++        63, 62, 61, 60,                         \
++        59, 58, 57, 56, 55, 54, 53, 52, 51, 50, \
++        49, 48, 47, 46, 45, 44, 43, 42, 41, 40, \
++        39, 38, 37, 36, 35, 34, 33, 32, 31, 30, \
++        29, 28, 27, 26, 25, 24, 23, 22, 21, 20, \
++        19, 18, 17, 16, 15, 14, 13, 12, 11, 10, \
++         9,  8,  7,  6,  5,  4,  3,  2,  1,  0
++
++void showFinCallerFuncArgs(
++    const int NARGS,
++    const void *CALLER_ADDR,
++    const char *FUNC_N_FORMAT, ...);
++
++void showFoutCallerFuncArgs(
++    const int NARGS,
++    const void *CALLER_ADDR,
++    const char *FUNC_N_FORMAT, ...);
++
++void showFuncLineArgs(
++    const int NARGS,
++    const unsigned long LINE_NUM,
++    const char *FUNC_N_FORMAT, ...);
++
++#if 1
++#define Fin(...) do {\
++    showFinCallerFuncArgs(   __VA_NARG__(__VA_ARGS__), \
++        __builtin_return_address(0),\
++        __func__, ##__VA_ARGS__);\
++} while(0)
++
++#define Fout(...) do {\
++    showFoutCallerFuncArgs( __VA_NARG__(__VA_ARGS__), \
++        __builtin_return_address(0),\
++        __func__, ##__VA_ARGS__);\
++} while(0)
++
++#define Ftr(...) do {\
++    showFuncLineArgs( __VA_NARG__(__VA_ARGS__),\
++        __LINE__, \
++        __func__,  ##__VA_ARGS__); \
++} while(0)
++#else
++// Remove all LED logs.
++#define Fin(...) do {} while(0)
++#define Fout(...) do {} while(0)
++#define Ftr(...) do {} while(0)
++#endif
++
++#endif  // end of file.
+-- 
+1.7.0.4
+
